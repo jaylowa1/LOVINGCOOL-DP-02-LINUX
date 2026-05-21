@@ -1,5 +1,5 @@
 # LOVINGCOOL-DP-02-LINUX
-A native Linux app based on Python to allow users of the AIO: LOVINGCOOL DP-02 to change their LCD display.
+A native Linux app based on Python allowing LOVINGCOOL-DP-02 AIO's LCD display to be changed without requiring Windows.
 ## Information
 This project was vibecoded using Codex on VSCodium. I manually reverse-engineered the LCD protocol using Wireshark + USBPCap.
 
