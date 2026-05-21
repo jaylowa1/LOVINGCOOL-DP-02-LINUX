@@ -3,7 +3,7 @@ A native Linux app based on Python allowing LOVINGCOOL-DP-02 AIO's LCD display t
 ## Information
 This project was vibecoded using Codex on VSCodium. I manually reverse-engineered the LCD protocol using Wireshark + USBPCap.
 
-This works with GIF, JPEG, JPG, PNG, etc (any format Pillow is able to open)
+This does NOT work with GIFs. If you upload a GIF, it will use the first frame of the GIF and display it.
 
 Tested on:
   - Python 3.14.4
