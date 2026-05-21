@@ -1,0 +1,4 @@
+# LOVINGCOOL DP-360-02 USB CDC ACM (VID:PID 33c3:7788)
+# Use logind ACLs for active local users (best cross-distro desktop behavior).
+# Keep MODE readable/writable; avoid hardcoding distro-specific groups here.
+KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", ATTRS{idVendor}=="33c3", ATTRS{idProduct}=="7788", TAG+="uaccess", MODE="0660"

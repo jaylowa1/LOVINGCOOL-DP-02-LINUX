@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=LOVINGCOOL LCD
+Comment=Send images to LOVINGCOOL DP-360-02 LCD cooler
+Exec=__APP_EXEC__
+Path=__APP_PATH__
+Icon=__APP_ICON__
+Terminal=false
+Categories=Utility;System;
+Keywords=lovingcool;cooler;lcd;serial;
+StartupNotify=true
