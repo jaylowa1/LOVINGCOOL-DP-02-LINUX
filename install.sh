@@ -9,8 +9,11 @@ RULE_DST="/etc/udev/rules.d/99-lovingcool-dp36002.rules"
 DESKTOP_TEMPLATE="${PROJECT_DIR}/deploy/lovingcool-lcd.desktop.template"
 DESKTOP_DIR="${HOME}/.local/share/applications"
 DESKTOP_FILE="${DESKTOP_DIR}/lovingcool-lcd.desktop"
+AUTOSTART_DIR="${HOME}/.config/autostart"
+AUTOSTART_FILE="${AUTOSTART_DIR}/lovingcool-lcd.desktop"
 ICON_PATH="${PROJECT_DIR}/assets/icon.png"
 PY_BIN=""
+ENABLE_AUTOSTART=0
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -70,7 +73,44 @@ install_desktop_file() {
   update-desktop-database "${DESKTOP_DIR}" >/dev/null 2>&1 || true
 }
 
+install_autostart_file() {
+  mkdir -p "${AUTOSTART_DIR}"
+
+  local app_exec="${VENV_DIR}/bin/python ${PROJECT_DIR}/main.py --send-last"
+  local icon_value="utilities-terminal"
+  if [[ -f "${ICON_PATH}" ]]; then
+    icon_value="${ICON_PATH}"
+  fi
+
+  sed \
+    -e "s|__APP_EXEC__|${app_exec}|g" \
+    -e "s|__APP_PATH__|${PROJECT_DIR}|g" \
+    -e "s|__APP_ICON__|${icon_value}|g" \
+    "${DESKTOP_TEMPLATE}" > "${AUTOSTART_FILE}"
+}
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --enable-autostart)
+        ENABLE_AUTOSTART=1
+        shift
+        ;;
+      *)
+        echo "Unknown option: $1" >&2
+        echo "Usage: ./install.sh [--enable-autostart]" >&2
+        exit 1
+        ;;
+    esac
+  done
+}
+
 print_post_install() {
+  local autostart_status="disabled"
+  if [[ "${ENABLE_AUTOSTART}" -eq 1 ]]; then
+    autostart_status="enabled"
+  fi
+
   cat <<MSG
 
 Install complete.
@@ -85,10 +125,15 @@ Run app:
 
 Desktop launcher installed:
   ${DESKTOP_FILE}
+
+Startup send:
+  ${autostart_status}
+  Toggle later inside the app with "Send last image on login".
 MSG
 }
 
 main() {
+  parse_args "$@"
   need_cmd sed
   need_cmd sudo
   need_cmd udevadm
@@ -118,6 +163,9 @@ main() {
   install_deps
   install_udev_rule
   install_desktop_file
+  if [[ "${ENABLE_AUTOSTART}" -eq 1 ]]; then
+    install_autostart_file
+  fi
   print_post_install
 }
 

@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QMovie, QPixmap
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -15,6 +16,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
 )
 
+from .autostart import AutostartManager
 from .protocol import LcdProtocol
 from .settings import AppSettings
 
@@ -22,10 +24,13 @@ from .settings import AppSettings
 class MainWindow(QWidget):
     def __init__(self) -> None:
         super().__init__()
+        self.autostart = AutostartManager()
+        self.autostart.ensure_current()
         self.protocol = LcdProtocol()
         self.settings = AppSettings()
         self.settings_data = self.settings.load()
         self.selected_image: Path | None = None
+        self.preview_movie: QMovie | None = None
 
         self.setWindowTitle("LOVINGCOOL LCD")
         self.resize(560, 460)
@@ -47,6 +52,10 @@ class MainWindow(QWidget):
         self.preview.setMinimumHeight(280)
         self.preview.setObjectName("PreviewBox")
 
+        self.autostart_checkbox = QCheckBox("Send last image on login")
+        self.autostart_checkbox.setChecked(self.autostart.is_enabled())
+        self.autostart_checkbox.toggled.connect(self._toggle_autostart)
+
         port_row = QHBoxLayout()
         self.port_combo = QComboBox()
         self.refresh_button = QPushButton("Refresh Ports")
@@ -66,6 +75,7 @@ class MainWindow(QWidget):
         action_row.addWidget(self.send_button)
 
         root.addWidget(self.path_label)
+        root.addWidget(self.autostart_checkbox)
         root.addLayout(port_row)
         root.addWidget(self.preview)
         root.addLayout(action_row)
@@ -99,6 +109,22 @@ class MainWindow(QWidget):
                     stop: 1 #0d1014
                 );
                 color: #64748b;
+            }
+            QCheckBox {
+                color: #cbd5e1;
+                spacing: 10px;
+                padding: 2px 0;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border-radius: 5px;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                background: #0d1117;
+            }
+            QCheckBox::indicator:checked {
+                background: #f8fafc;
+                border: 1px solid #ffffff;
             }
             QPushButton {
                 background: #f8fafc;
@@ -154,7 +180,7 @@ class MainWindow(QWidget):
             self,
             "Select Image",
             "",
-            "Images (*.png *.jpg *.jpeg *.bmp *.webp)",
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp *.gif)",
         )
         if not file_path:
             return
@@ -192,6 +218,15 @@ class MainWindow(QWidget):
             self.send_button.setEnabled(True)
             self.send_button.setText("Send to LCD")
 
+    def _toggle_autostart(self, enabled: bool) -> None:
+        try:
+            self.autostart.set_enabled(enabled)
+        except OSError as exc:
+            self.autostart_checkbox.blockSignals(True)
+            self.autostart_checkbox.setChecked(not enabled)
+            self.autostart_checkbox.blockSignals(False)
+            QMessageBox.critical(self, "Startup send failed", str(exc))
+
     def closeEvent(self, event) -> None:  # noqa: N802
         self._save_settings()
         super().closeEvent(event)
@@ -210,7 +245,18 @@ class MainWindow(QWidget):
         if self.selected_image is None:
             return
 
+        if self.selected_image.suffix.lower() == ".gif":
+            self.path_label.setText(f"{self.selected_image} (upload sends first frame)")
+            self.preview_movie = QMovie(str(self.selected_image))
+            self.preview_movie.setScaledSize(self.preview.size())
+            self.preview.setMovie(self.preview_movie)
+            self.preview_movie.start()
+            self.send_button.setEnabled(True)
+            return
+
         self.path_label.setText(str(self.selected_image))
+        self.preview_movie = None
+        self.preview.setMovie(None)
         pixmap = QPixmap(str(self.selected_image))
         scaled = pixmap.scaled(
             self.preview.size(),

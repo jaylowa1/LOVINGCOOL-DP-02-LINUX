@@ -3,6 +3,7 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DESKTOP_FILE="${HOME}/.local/share/applications/lovingcool-lcd.desktop"
+AUTOSTART_FILE="${HOME}/.config/autostart/lovingcool-lcd.desktop"
 RULE_DST="/etc/udev/rules.d/99-lovingcool-dp36002.rules"
 
 remove_desktop_file() {
@@ -12,6 +13,15 @@ remove_desktop_file() {
     echo "Removed desktop launcher: ${DESKTOP_FILE}"
   else
     echo "Desktop launcher not found: ${DESKTOP_FILE}"
+  fi
+}
+
+remove_autostart_file() {
+  if [[ -f "${AUTOSTART_FILE}" ]]; then
+    rm -f "${AUTOSTART_FILE}"
+    echo "Removed autostart entry: ${AUTOSTART_FILE}"
+  else
+    echo "Autostart entry not found: ${AUTOSTART_FILE}"
   fi
 }
 
@@ -28,6 +38,7 @@ remove_udev_rule() {
 }
 
 main() {
+  remove_autostart_file
   remove_desktop_file
   remove_udev_rule
   cat <<MSG

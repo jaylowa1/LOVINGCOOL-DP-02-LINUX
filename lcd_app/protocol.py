@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 import serial
-from PIL import Image
+from PIL import Image, ImageSequence
 
 COMMAND_BYTES = bytes.fromhex("55 aa 07 00 11 17 01")
 CHUNK_SIZE = 4096
@@ -44,6 +44,8 @@ class LcdProtocol:
     @staticmethod
     def _to_jpeg_bytes(image_path: str | Path, quality: int = 95) -> bytes:
         with Image.open(image_path) as image:
+            if getattr(image, "is_animated", False):
+                image = ImageSequence.Iterator(image)[0]
             rgb_image = image.convert("RGB")
             buf = io.BytesIO()
             rgb_image.save(buf, format="JPEG", quality=quality, optimize=True)
