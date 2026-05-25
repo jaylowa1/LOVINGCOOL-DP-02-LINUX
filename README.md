@@ -4,12 +4,12 @@ A native Linux app based on Python allowing LOVINGCOOL-DP-02 AIO's LCD display t
 ## Information
 This project was vibecoded using Codex on VSCodium. I manually reverse-engineered the LCD protocol using Wireshark + USBPCap.
 
-Now works with GIFs!
+Now works with GIFs! (When using a GIF, the application will run in the background. It will use around 15 MiB to 20 MiB of RAM in the background)
 
 Tested on:
 - Python 3.14.4
 - CachyOS (Arch-based)
-- LOVINGCOOL DP-360-02
+- LOVINGCOOL DP-360-02 AIO
 
 The 240mm variant may also work depending on if it uses the same protocol as the 360mm, but I don't own it to test it out.
 
@@ -28,7 +28,7 @@ cd LOVINGCOOL-DP-02-LINUX
 ```
 Then reboot your computer. DO NOT SKIP THIS STEP.
 
-## Linux permissions
+## Linux Permissions
 The installer uses a hybrid `udev` setup for reliable non-root access:
 - `TAG+="uaccess"` for desktop-session ACLs
 - `GROUP="uucp"` on Arch-based distros
