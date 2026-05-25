@@ -4,7 +4,7 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="${PROJECT_DIR}/venv"
 REQ_FILE="${PROJECT_DIR}/requirements.txt"
-RULE_SRC="${PROJECT_DIR}/deploy/99-lovingcool-dp36002.rules"
+RULE_TEMPLATE="${PROJECT_DIR}/deploy/99-lovingcool-dp36002.rules"
 RULE_DST="/etc/udev/rules.d/99-lovingcool-dp36002.rules"
 DESKTOP_TEMPLATE="${PROJECT_DIR}/deploy/lovingcool-lcd.desktop.template"
 DESKTOP_DIR="${HOME}/.local/share/applications"
@@ -14,6 +14,8 @@ AUTOSTART_FILE="${AUTOSTART_DIR}/lovingcool-lcd.desktop"
 ICON_PATH="${PROJECT_DIR}/assets/icon.png"
 PY_BIN=""
 ENABLE_AUTOSTART=0
+SERIAL_GROUP=""
+GROUP_CHANGED=0
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -47,9 +49,44 @@ install_deps() {
   "${VENV_DIR}/bin/pip" install -r "${REQ_FILE}"
 }
 
+read_os_release() {
+  local key="$1"
+  awk -F= -v wanted="$key" '$1 == wanted {gsub(/"/, "", $2); print tolower($2)}' /etc/os-release 2>/dev/null || true
+}
+
+detect_serial_group() {
+  local distro_id distro_like
+  distro_id="$(read_os_release ID)"
+  distro_like="$(read_os_release ID_LIKE)"
+
+  if [[ "${distro_id}" =~ ^(arch|cachyos|endeavouros|manjaro)$ ]] || [[ "${distro_like}" == *arch* ]]; then
+    SERIAL_GROUP="uucp"
+  elif [[ "${distro_id}" =~ ^(debian|ubuntu|linuxmint|pop)$ ]] || [[ "${distro_like}" == *debian* ]] || [[ "${distro_like}" == *ubuntu* ]]; then
+    SERIAL_GROUP="dialout"
+  elif getent group uucp >/dev/null 2>&1; then
+    SERIAL_GROUP="uucp"
+  elif getent group dialout >/dev/null 2>&1; then
+    SERIAL_GROUP="dialout"
+  else
+    echo "Could not determine serial access group for this distro." >&2
+    exit 1
+  fi
+}
+
+ensure_user_group() {
+  if id -nG "$USER" | tr ' ' '\n' | grep -qx "${SERIAL_GROUP}"; then
+    return
+  fi
+
+  echo "Adding ${USER} to group ${SERIAL_GROUP} (requires sudo)"
+  sudo usermod -aG "${SERIAL_GROUP}" "$USER"
+  GROUP_CHANGED=1
+}
+
 install_udev_rule() {
-  echo "Installing udev rule (requires sudo)"
-  sudo install -m 0644 "${RULE_SRC}" "${RULE_DST}"
+  echo "Installing udev rule for group ${SERIAL_GROUP} (requires sudo)"
+  sed "s|__SERIAL_GROUP__|${SERIAL_GROUP}|g" "${RULE_TEMPLATE}" | sudo tee "${RULE_DST}" >/dev/null
+  sudo chmod 0644 "${RULE_DST}"
   sudo udevadm control --reload-rules
   sudo udevadm trigger
 }
@@ -87,6 +124,8 @@ install_autostart_file() {
     -e "s|__APP_PATH__|${PROJECT_DIR}|g" \
     -e "s|__APP_ICON__|${icon_value}|g" \
     "${DESKTOP_TEMPLATE}" > "${AUTOSTART_FILE}"
+
+  chmod 0644 "${AUTOSTART_FILE}"
 }
 
 parse_args() {
@@ -106,19 +145,36 @@ parse_args() {
 }
 
 print_post_install() {
-  local autostart_status="disabled"
+  local startup_send_status="disabled"
   if [[ "${ENABLE_AUTOSTART}" -eq 1 ]]; then
-    autostart_status="enabled"
+    startup_send_status="enabled"
   fi
 
   cat <<MSG
 
 Install complete.
 
+Serial access:
+- Using group fallback: ${SERIAL_GROUP}
+- udev rule installed to: ${RULE_DST}
+- Replug the cooler so the new rule applies.
+MSG
+
+  if [[ "${GROUP_CHANGED}" -eq 1 ]]; then
+    cat <<MSG
+- Your user was added to ${SERIAL_GROUP}.
+- Log out and log back in, or reboot, before testing.
+MSG
+  else
+    cat <<MSG
+- Your user is already in ${SERIAL_GROUP}.
+MSG
+  fi
+
+  cat <<MSG
+
 Important:
 - Do NOT run the GUI with sudo.
-- Replug the cooler (unplug/replug USB) so new udev permissions apply.
-- If serial access still fails, log out and log back in.
 
 Run app:
   ${VENV_DIR}/bin/python ${PROJECT_DIR}/main.py
@@ -127,17 +183,20 @@ Desktop launcher installed:
   ${DESKTOP_FILE}
 
 Startup send:
-  ${autostart_status}
+  ${startup_send_status}
   Toggle later inside the app with "Send last image on login".
 MSG
 }
 
 main() {
   parse_args "$@"
+  need_cmd awk
+  need_cmd getent
   need_cmd sed
   need_cmd sudo
   need_cmd udevadm
   choose_python
+  detect_serial_group
 
   if ! "${PY_BIN}" -m venv -h >/dev/null 2>&1; then
     echo "Python venv module is unavailable. Install python3-venv (Debian/Ubuntu) or ensure venv support (Arch)." >&2
@@ -149,8 +208,8 @@ main() {
     exit 1
   fi
 
-  if [[ ! -f "${RULE_SRC}" ]]; then
-    echo "Missing udev rule file: ${RULE_SRC}" >&2
+  if [[ ! -f "${RULE_TEMPLATE}" ]]; then
+    echo "Missing udev rule file: ${RULE_TEMPLATE}" >&2
     exit 1
   fi
 
@@ -161,6 +220,7 @@ main() {
 
   setup_venv
   install_deps
+  ensure_user_group
   install_udev_rule
   install_desktop_file
   if [[ "${ENABLE_AUTOSTART}" -eq 1 ]]; then

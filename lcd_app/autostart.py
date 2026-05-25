@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-APP_NAME = "LOVINGCOOL LCD Startup Send"
+APP_NAME = "LOVINGCOOL LCD Startup"
 AUTOSTART_DIR = Path.home() / ".config" / "autostart"
 AUTOSTART_PATH = AUTOSTART_DIR / "lovingcool-lcd.desktop"
 
@@ -42,8 +42,8 @@ class AutostartManager:
                 "Type=Application",
                 "Version=1.0",
                 f"Name={APP_NAME}",
-                "Comment=Send the last image to the LOVINGCOOL DP-360-02 LCD at login",
-                f"Exec={exec_path} {self.main_script} --send-last",
+                "Comment=Run the last LOVINGCOOL LCD media item at login",
+                f"Exec={exec_path} {self.main_script} --run-last",
                 f"Path={self.project_dir}",
                 f"Icon={icon_value}",
                 "Terminal=false",

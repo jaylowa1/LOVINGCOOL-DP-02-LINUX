@@ -6,12 +6,14 @@ import time
 from pathlib import Path
 
 import serial
-from PIL import Image, ImageSequence
+from PIL import Image, ImageOps, ImageSequence
 
 COMMAND_BYTES = bytes.fromhex("55 aa 07 00 11 17 01")
 CHUNK_SIZE = 4096
 HANDSHAKE_DELAY = 0.5
 CHUNK_DELAY = 0.01
+LCD_WIDTH = 480
+LCD_HEIGHT = 340
 
 
 class LcdProtocol:
@@ -46,7 +48,20 @@ class LcdProtocol:
         with Image.open(image_path) as image:
             if getattr(image, "is_animated", False):
                 image = ImageSequence.Iterator(image)[0]
-            rgb_image = image.convert("RGB")
+            normalized_image = ImageOps.exif_transpose(image)
+            rgb_image = normalized_image.convert("RGB")
+            fitted_image = LcdProtocol._fit_to_lcd(rgb_image)
             buf = io.BytesIO()
-            rgb_image.save(buf, format="JPEG", quality=quality, optimize=True)
+            fitted_image.save(buf, format="JPEG", quality=quality, optimize=True)
             return buf.getvalue()
+
+    @staticmethod
+    def _fit_to_lcd(image: Image.Image) -> Image.Image:
+        resized = image.copy()
+        resized.thumbnail((LCD_WIDTH, LCD_HEIGHT), Image.Resampling.LANCZOS)
+
+        canvas = Image.new("RGB", (LCD_WIDTH, LCD_HEIGHT), "black")
+        offset_x = (LCD_WIDTH - resized.width) // 2
+        offset_y = (LCD_HEIGHT - resized.height) // 2
+        canvas.paste(resized, (offset_x, offset_y))
+        return canvas
