@@ -41,6 +41,7 @@ class MainWindow(QWidget):
         self.settings_data = self.settings.load()
         self.selected_image: Path | None = None
         self.preview_movie: QMovie | None = None
+        self.stretch_to_fit = bool(self.settings_data.get("display_stretch", False))
 
         self.status_timer = QTimer(self)
         self.status_timer.setInterval(1000)
@@ -74,10 +75,14 @@ class MainWindow(QWidget):
         self.autostart_checkbox = QCheckBox("Run on startup")
         self.autostart_checkbox.setChecked(self.autostart.is_enabled())
         self.autostart_checkbox.toggled.connect(self._toggle_autostart)
+        self.stretch_checkbox = QCheckBox("Stretch to fit")
+        self.stretch_checkbox.setChecked(self.stretch_to_fit)
+        self.stretch_checkbox.toggled.connect(self._toggle_stretch_mode)
         self.port_combo = QComboBox()
         self.refresh_button = QPushButton("Refresh Ports")
         self.refresh_button.clicked.connect(self._refresh_ports)
         top_row.addWidget(self.autostart_checkbox)
+        top_row.addWidget(self.stretch_checkbox)
         top_row.addStretch(1)
         top_row.addWidget(self.port_combo)
         top_row.addWidget(self.refresh_button)
@@ -371,14 +376,14 @@ class MainWindow(QWidget):
             if self.selected_image.suffix.lower() == ".gif":
                 if self.gif_process.is_running():
                     self.gif_process.stop()
-                self.gif_process.start(self.selected_image, port)
+                self.gif_process.start(self.selected_image, port, stretch=self.stretch_to_fit)
                 message = "GIF playback is running in the background."
             else:
                 if self.gif_process.is_running():
                     self.gif_process.stop()
                 self.apply_button.setEnabled(False)
                 self.apply_button.setText("Applying...")
-                self.protocol.send_image_file(self.selected_image, port)
+                self.protocol.send_image_file(self.selected_image, port, stretch=self.stretch_to_fit)
                 message = "Image sent to LCD successfully."
         except Exception as exc:
             QMessageBox.critical(self, "Apply failed", str(exc))
@@ -404,7 +409,7 @@ class MainWindow(QWidget):
             return
 
         try:
-            self.gif_process.start(self.selected_image, port)
+            self.gif_process.start(self.selected_image, port, stretch=self.stretch_to_fit)
         except Exception as exc:
             QMessageBox.critical(self, "Playback failed", str(exc))
             return
@@ -420,6 +425,10 @@ class MainWindow(QWidget):
             self.autostart_checkbox.setChecked(not enabled)
             self.autostart_checkbox.blockSignals(False)
             QMessageBox.critical(self, "Startup update failed", str(exc))
+
+    def _toggle_stretch_mode(self, enabled: bool) -> None:
+        self.stretch_to_fit = enabled
+        self._save_settings()
 
     def closeEvent(self, event) -> None:  # noqa: N802
         self._save_settings()
@@ -529,4 +538,5 @@ class MainWindow(QWidget):
         self.settings_data["last_port"] = self.port_combo.currentText()
         self.settings_data["last_media"] = str(self.selected_image) if self.selected_image else ""
         self.settings_data["last_image"] = self.settings_data["last_media"]
+        self.settings_data["display_stretch"] = self.stretch_to_fit
         self.settings.save(self.settings_data)

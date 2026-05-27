@@ -27,13 +27,15 @@ def run_last_media() -> int:
     if not media_file.is_file():
         return 0
 
+    stretch = bool(settings.get("display_stretch", False))
+
     if media_file.suffix.lower() == ".gif":
         gif_process = GifProcessManager()
         if not gif_process.is_running():
-            gif_process.start(media_file, port)
+            gif_process.start(media_file, port, stretch=stretch)
         return 0
 
-    protocol.send_image_file(media_file, port)
+    protocol.send_image_file(media_file, port, stretch=stretch)
     return 0
 
 

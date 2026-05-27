@@ -20,10 +20,11 @@ SHOULD_RUN = True
 
 
 class GifPlayer:
-    def __init__(self, gif_path: str | Path, port: str, quality: int = 90) -> None:
+    def __init__(self, gif_path: str | Path, port: str, quality: int = 90, stretch: bool = False) -> None:
         self.gif_path = Path(gif_path)
         self.port = port
         self.quality = quality
+        self.stretch = stretch
         self.protocol = LcdProtocol()
         self.frames = self._load_frames()
 
@@ -74,7 +75,7 @@ class GifPlayer:
         with Image.open(self.gif_path) as gif:
             for frame in ImageSequence.Iterator(gif):
                 rgb_frame = frame.convert("RGB")
-                fitted_frame = self.protocol._fit_to_lcd(rgb_frame)
+                fitted_frame = self.protocol._fit_to_lcd(rgb_frame, stretch=self.stretch)
                 jpeg_data = self._encode_jpeg(fitted_frame)
                 frame_delay = self._frame_delay_seconds(frame)
                 frames.append((jpeg_data, frame_delay))
@@ -106,12 +107,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("gif_path", help="Path to the GIF file")
     parser.add_argument("--port", required=True, help="Serial device path, e.g. /dev/ttyACM0")
     parser.add_argument("--quality", type=int, default=90, help="JPEG quality for streamed frames")
+    parser.add_argument("--stretch", action="store_true", help="Stretch frames to fill the LCD")
     args = parser.parse_args(argv)
 
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
 
-    player = GifPlayer(args.gif_path, args.port, quality=args.quality)
+    player = GifPlayer(args.gif_path, args.port, quality=args.quality, stretch=args.stretch)
     return player.play_forever()
 
 

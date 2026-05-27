@@ -29,7 +29,7 @@ class GifProcessManager:
             return False
         return True
 
-    def start(self, gif_path: str | Path, port: str) -> None:
+    def start(self, gif_path: str | Path, port: str, stretch: bool = False) -> None:
         gif_path = str(Path(gif_path).resolve())
         if self.is_running():
             raise RuntimeError("GIF playback is already running")
@@ -41,7 +41,7 @@ class GifProcessManager:
                 gif_path,
                 "--port",
                 port,
-            ],
+            ] + (["--stretch"] if stretch else []),
             cwd=self.project_dir,
             start_new_session=True,
             stdout=subprocess.DEVNULL,

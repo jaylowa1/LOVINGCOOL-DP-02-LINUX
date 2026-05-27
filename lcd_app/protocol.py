@@ -24,8 +24,8 @@ class LcdProtocol:
     def list_ports(self) -> list[str]:
         return sorted(glob.glob("/dev/ttyACM*"))
 
-    def send_image_file(self, image_path: str | Path, port: str) -> None:
-        jpeg_data = self._to_jpeg_bytes(image_path)
+    def send_image_file(self, image_path: str | Path, port: str, stretch: bool = False) -> None:
+        jpeg_data = self._to_jpeg_bytes(image_path, stretch=stretch)
         self.send_jpeg_bytes(jpeg_data, port)
 
     def send_jpeg_bytes(self, jpeg_data: bytes, port: str) -> None:
@@ -44,19 +44,22 @@ class LcdProtocol:
                 time.sleep(CHUNK_DELAY)
 
     @staticmethod
-    def _to_jpeg_bytes(image_path: str | Path, quality: int = 95) -> bytes:
+    def _to_jpeg_bytes(image_path: str | Path, quality: int = 95, stretch: bool = False) -> bytes:
         with Image.open(image_path) as image:
             if getattr(image, "is_animated", False):
                 image = ImageSequence.Iterator(image)[0]
             normalized_image = ImageOps.exif_transpose(image)
             rgb_image = normalized_image.convert("RGB")
-            fitted_image = LcdProtocol._fit_to_lcd(rgb_image)
+            fitted_image = LcdProtocol._fit_to_lcd(rgb_image, stretch=stretch)
             buf = io.BytesIO()
             fitted_image.save(buf, format="JPEG", quality=quality, optimize=True)
             return buf.getvalue()
 
     @staticmethod
-    def _fit_to_lcd(image: Image.Image) -> Image.Image:
+    def _fit_to_lcd(image: Image.Image, stretch: bool = False) -> Image.Image:
+        if stretch:
+            return image.resize((LCD_WIDTH, LCD_HEIGHT), Image.Resampling.LANCZOS)
+
         resized = image.copy()
         resized.thumbnail((LCD_WIDTH, LCD_HEIGHT), Image.Resampling.LANCZOS)
 
